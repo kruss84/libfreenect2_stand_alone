@@ -28,6 +28,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake_mo
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/bin")
 set(CMAKE_CONFIGURATION_TYPES Release CACHE TYPE INTERNAL FORCE)
 SET_PROPERTY(GLOBAL PROPERTY TARGET_SUPPORTS_SHARED_LIBS TRUE)
+SET(OpenCV_DIR "D:/depend/opencv-3.4.0/build/")
 Find_package(OpenCV REQUIRED)
 
 
@@ -60,13 +61,11 @@ include_directories(
 	src
 	${CMAKE_CURRENT_SOURCE_DIR}
 	${OpenCV_INCLUDE_DIR}
-#	"E:/workspace/libfreenect2-master_/include"
-#	"E:/workspace/libfreenect2-master_/build/"
+
 )
 
 link_directories("lib/Release")
 link_directories("lib/Debug")
-#link_directories("E:/workspace/libfreenect2-master_/build/lib/Release")
 
 ############################
 ## Build Lib Kinect Calib ##
@@ -98,6 +97,10 @@ target_link_libraries(WorldFrame ${OpenCV_LIBS}
 
 ADD_EXECUTABLE(kinect_v2
   src/kinect_v2.cpp
+  src/WorldFrame.h
+  src/WorldFrame.cpp
+  src/VideoProcessor.h
+  src/VideoProcessor.cpp
 )
 message("${OpenCV_LIBRARIES}")
 

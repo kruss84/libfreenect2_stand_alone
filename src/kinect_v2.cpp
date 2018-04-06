@@ -45,6 +45,7 @@
 #include <libfreenect2/logger.h>
 
 #include "Kinect2Calib\kinect2_calib.h"
+#include "WorldFrame.h"
 
 
 
@@ -73,11 +74,113 @@ CvFont font;
 
 bool protonect_shutdown = false;
 
+
 void sigint_handler(int s)
 {
 	protonect_shutdown = true;
 }
 
+bool loadCalibrationFile(const std::string &filename, cv::Mat &cameraMatrix, cv::Mat &distortion)
+{
+	FileStorage fs;
+	if (fs.open(filename, cv::FileStorage::READ))
+	{
+		fs[K2_CALIB_CAMERA_MATRIX] >> cameraMatrix;
+		fs[K2_CALIB_DISTORTION] >> distortion;
+		fs.release();
+	}
+	else
+	{
+		std::cerr << "can't open calibration file: " << filename << std::endl;
+		return false;
+	}
+	return true;
+}
+
+bool calibrate(Mat img, bool calibrate_flag = false){
+	if (calibrate_flag){
+		CoordinateFrame::WorldFrame worldFrame_1;
+
+		std::string calib_path = "../data/";
+		std::string serial = dev->getSerialNumber();
+		std::string calibPath = calib_path + serial + '/';
+
+		Mat cameraMatrixColor = Mat::eye(3, 3, CV_64F);
+		Mat distortionColor = Mat::zeros(1, 5, CV_64F);
+		if (!loadCalibrationFile(calibPath + K2_CALIB_COLOR, cameraMatrixColor, distortionColor))
+		{
+			std::cerr << "using sensor defaults for color intrinsic parameters." << std::endl;
+		}
+
+		worldFrame_1.points_per_row = 9;
+		worldFrame_1.points_per_col = 7;
+		worldFrame_1.squareSize = 0.1;
+		/*
+		worldFrame_1.points_per_row = 7;
+		worldFrame_1.points_per_col = 5;
+		worldFrame_1.squareSize = 0.048;
+		*/
+		worldFrame_1.scale_dis = 2;
+		worldFrame_1.scale_display = true;
+
+		worldFrame_1.calibPath = calib_path + serial;
+		worldFrame_1.calibFile = "external_Parameters_" + serial + ".xml";
+		worldFrame_1.serial = serial;
+
+		worldFrame_1.K = cameraMatrixColor;
+		worldFrame_1.dist = distortionColor;
+
+		worldFrame_1.init();
+
+		worldFrame_1.calibrate = true;
+		worldFrame_1.calibWorldFrame(img);
+	}
+	return true;
+}
+
+const string currentDateTime() {
+	time_t     now = time(0);
+	struct tm  tstruct;
+	char       buf[80];
+	tstruct = *localtime(&now);
+	// Visit http://en.cppreference.com/w/cpp/chrono/c/strftime
+	// for more information about date/time format
+	strftime(buf, sizeof(buf), "%Y-%m-%d-%H-%M-%S", &tstruct);
+	return buf;
+}
+
+void video_input(VideoCapture  &video_reader, Mat &frame, const String& filename, bool read_flag = true){
+	//cout << "enter video output function" << endl;
+	if (read_flag){
+		if (!video_reader.isOpened())
+			video_reader.open(filename);
+		video_reader >> frame;
+	}
+	//close video writer
+	else if (!read_flag){
+		if (video_reader.isOpened()){
+			video_reader.release();
+		}
+	}
+}
+
+void video_output(VideoWriter &video_writer, Mat img, const String& filename, double fps, bool isColor = true, bool start_recorde = false){
+	//cout << "enter video output function" << endl;
+	//open video writer and recorde
+	if (start_recorde){
+		if (!video_writer.isOpened()){
+			video_writer.open(filename, CV_FOURCC('D', 'I', 'B', ' '), fps, img.size(), isColor);
+			cout << "isOpened" << video_writer.isOpened() << endl;
+		}
+		video_writer.write(img);
+	}
+	//close video writer
+	else if (!start_recorde){
+		if (video_writer.isOpened()){
+			video_writer.release();
+		}
+	}
+}
 
 int main(int argc, char *argv[])
 {
@@ -85,6 +188,7 @@ int main(int argc, char *argv[])
 	size_t executable_name_idx = prorangeam_path.rfind("Protonect");
 
 	std::string binpath = "/";
+	std::string video_path = "../";
 
 	if (executable_name_idx != std::string::npos)
 	{
@@ -107,9 +211,9 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
-	std::string serial = freenect2.getDefaultDeviceSerialNumber();
-	//std::string serial = "019228645047";
-	
+	cout << freenect2.getDefaultDeviceSerialNumber() << endl;
+	std::string serial = ("018470145047");
+	cout << serial << endl;
 	if (pipeline)
 	{
 		dev = freenect2.openDevice(serial, pipeline);
@@ -137,7 +241,7 @@ int main(int argc, char *argv[])
 	dev->setIrAndDepthFrameListener(&listener);
 	dev->start();
 
-	cout << "device serial: " << dev->getSerialNumber() << endl;
+	//std::cout << "device serial: " << dev->getSerialNumber() << std::endl;
 	//std::cout << "device firmware: " << dev->getFirmwareVersion() << std::endl;
 
 	// Load Calibration DATA
@@ -152,9 +256,10 @@ int main(int argc, char *argv[])
 
 	cv::Mat map1Ir, map2Ir, map1Scaled, map2Scaled, map1Color, map2Color;
 	const int mapType = CV_16SC2;
-
-	std::string calibPath = "../data/" + serial + '/';
-
+	cout << serial << endl;
+	cout << "Breakpoint\n";
+	std::string calibPath = "../data/" + serial + "/" ;
+	cout << "Breakpoint\n";
 	if (!calib.loadCalibrationFile(calibPath + K2_CALIB_COLOR, cameraMatrixColor, distortionColor))
 	{
 		std::cerr << "using sensor defaults for color intrinsic parameters." << std::endl;
@@ -200,8 +305,19 @@ int main(int argc, char *argv[])
 
 
 	int count = 0;
+	//Viedo output
+	VideoWriter color_writer;
+	VideoWriter depth_writer;
+	VideoCapture video_reader(video_path + "color_2018-04-06-11-06-52.avi");
+
+	bool recorde_flag = 0;
+	bool calibrate_flag = 0;
+
 	while (!protonect_shutdown)
 	{
+		int key = cv::waitKey(1);
+		recorde_flag = (key == 114 || key == 82) ? (!recorde_flag) : recorde_flag;
+		calibrate_flag = (key == 67 || key == 99) ? true : false;
 
 		listener.waitForNewFrame(frames);
 		libfreenect2::Frame *rgb = frames[libfreenect2::Frame::Color];
@@ -211,24 +327,32 @@ int main(int argc, char *argv[])
 		cv::Mat image_depth = cv::Mat(depth->height, depth->width, CV_32FC1, depth->data);
 		cv::Mat image_color = cv::Mat(rgb->height, rgb->width, CV_8UC4, rgb->data);
 
+		//video record
+		video_output(color_writer, image_color, video_path + "color_" + currentDateTime() + ".avi", 25.0, 1, recorde_flag);
+		video_output(depth_writer, image_depth, video_path + "depth_" + currentDateTime() + ".avi", 25.0, 0, recorde_flag);
 
+		calibrate(image_color, calibrate_flag);
 
-
-
-
-		
-
+		if (recorde_flag){
+			putText(image_color, "(R)ecording..., (C)alibrate, (Esc)exit", Point(50, 60), FONT_HERSHEY_SIMPLEX, 1, Scalar(255, 23, 0), 4, 8);
+		}
+		else if (!recorde_flag){
+			putText(image_color, "(R)ecord start, (C)alibrate, (Esc)exit", Point(50, 60), FONT_HERSHEY_SIMPLEX, 1, Scalar(255, 23, 0), 4, 8);
+		}
 		imshow("RGB", image_color);
 		imshow("Depth", image_depth);
-
-		int key = cv::waitKey(1);
+		
 		protonect_shutdown = protonect_shutdown || (key > 0 && ((key & 0xFF) == 27)); // shutdown on escape
 
 		listener.release(frames);
 		//libfreenect2::this_thread::sleep_for(libfreenect2::chrono::milliseconds(100));
 
 
-
+		/* read video
+		Mat temp_read;
+		video_input(video_reader, temp_read, video_path + "color_2018-04-06-11-06-52.avi", true);
+		imshow("temp_read", temp_read);
+		*/
 	}
 
 	// TODO: restarting ir stream doesn't work!
