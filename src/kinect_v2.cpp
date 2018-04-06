@@ -46,7 +46,7 @@
 
 #include "Kinect2Calib\kinect2_calib.h"
 #include "WorldFrame/WorldFrame.h"
-#include "VideoStreamer.h"
+#include "VideoStreamer/VideoStreamer.h"
 
 
 

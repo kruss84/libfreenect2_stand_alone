@@ -90,13 +90,13 @@ add_library(WorldFrame STATIC
 target_link_libraries(WorldFrame ${OpenCV_LIBS}
   ${OpenCV_LIBRARIES})
 
-###########################
+##############################
 ## Build Lib Video Streamer ##
-###########################
+##############################
 
 add_library(VideoStreamer STATIC
-  src/VideoStreamer.h
-  src/VideoStreamer.cpp
+  src/VideoStreamer/VideoStreamer.h
+  src/VideoStreamer/VideoStreamer.cpp
 )
 target_link_libraries(VideoStreamer ${OpenCV_LIBS}
   ${OpenCV_LIBRARIES})
