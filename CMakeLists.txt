@@ -99,8 +99,8 @@ ADD_EXECUTABLE(kinect_v2
   src/kinect_v2.cpp
   src/WorldFrame.h
   src/WorldFrame.cpp
-  src/VideoProcessor.h
-  src/VideoProcessor.cpp
+  src/VideoStreamer.h
+  src/VideoStreamer.cpp
 )
 message("${OpenCV_LIBRARIES}")
 

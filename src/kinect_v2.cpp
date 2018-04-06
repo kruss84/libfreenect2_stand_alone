@@ -46,6 +46,8 @@
 
 #include "Kinect2Calib\kinect2_calib.h"
 #include "WorldFrame.h"
+#include "VideoStreamer.h"
+
 
 
 
@@ -305,10 +307,11 @@ int main(int argc, char *argv[])
 
 
 	int count = 0;
+
 	//Viedo output
-	VideoWriter color_writer;
-	VideoWriter depth_writer;
 	VideoCapture video_reader(video_path + "color_2018-04-06-11-06-52.avi");
+
+	VideoStreamer vs;
 
 	bool recorde_flag = 0;
 	bool calibrate_flag = 0;
@@ -327,9 +330,9 @@ int main(int argc, char *argv[])
 		cv::Mat image_depth = cv::Mat(depth->height, depth->width, CV_32FC1, depth->data);
 		cv::Mat image_color = cv::Mat(rgb->height, rgb->width, CV_8UC4, rgb->data);
 
-		//video record
-		video_output(color_writer, image_color, video_path + "color_" + currentDateTime() + ".avi", 25.0, 1, recorde_flag);
-		video_output(depth_writer, image_depth, video_path + "depth_" + currentDateTime() + ".avi", 25.0, 0, recorde_flag);
+		//video record 
+		vs.video_recorder(video_path, image_color, 25.0, VideoStreamer::COLOR, recorde_flag);
+		vs.video_recorder(video_path, image_depth, 25.0, VideoStreamer::DEPTH, recorde_flag);
 
 		calibrate(image_color, calibrate_flag);
 
@@ -348,11 +351,11 @@ int main(int argc, char *argv[])
 		//libfreenect2::this_thread::sleep_for(libfreenect2::chrono::milliseconds(100));
 
 
-		/* read video
+		// read video
 		Mat temp_read;
-		video_input(video_reader, temp_read, video_path + "color_2018-04-06-11-06-52.avi", true);
+		vs.video_play(video_path + "color_2018-04-06-15-17-53.avi", temp_read, true);
 		imshow("temp_read", temp_read);
-		*/
+		
 	}
 
 	// TODO: restarting ir stream doesn't work!
