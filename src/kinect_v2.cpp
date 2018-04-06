@@ -214,7 +214,7 @@ int main(int argc, char *argv[])
 	}
 
 	cout << freenect2.getDefaultDeviceSerialNumber() << endl;
-	std::string serial = ("018470145047");
+	std::string serial = ("019228645047");
 	cout << serial << endl;
 	if (pipeline)
 	{
@@ -309,7 +309,7 @@ int main(int argc, char *argv[])
 	int count = 0;
 
 	//Viedo output
-	VideoCapture video_reader(video_path + "color_2018-04-06-11-06-52.avi");
+	//VideoCapture video_reader(video_path + "color_2018-04-06-11-06-52.avi");
 
 	VideoStreamer vs;
 
@@ -352,9 +352,9 @@ int main(int argc, char *argv[])
 
 
 		// read video
-		Mat temp_read;
-		vs.video_play(video_path + "color_2018-04-06-15-17-53.avi", temp_read, true);
-		imshow("temp_read", temp_read);
+		//Mat temp_read;
+		//vs.video_play(video_path + "color_2018-04-06-15-17-53.avi", temp_read, true);
+		//imshow("temp_read", temp_read);
 		
 	}
 
