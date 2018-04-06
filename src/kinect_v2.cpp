@@ -45,7 +45,7 @@
 #include <libfreenect2/logger.h>
 
 #include "Kinect2Calib\kinect2_calib.h"
-#include "WorldFrame.h"
+#include "WorldFrame/WorldFrame.h"
 #include "VideoStreamer.h"
 
 
