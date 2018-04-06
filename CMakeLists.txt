@@ -28,7 +28,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake_mo
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/bin")
 set(CMAKE_CONFIGURATION_TYPES Release CACHE TYPE INTERNAL FORCE)
 SET_PROPERTY(GLOBAL PROPERTY TARGET_SUPPORTS_SHARED_LIBS TRUE)
-SET(OpenCV_DIR "D:/depend/opencv-3.4.0/build/")
+#SET(OpenCV_DIR "D:/depend/opencv-3.4.0/build/")
 Find_package(OpenCV REQUIRED)
 
 
@@ -90,6 +90,17 @@ add_library(WorldFrame STATIC
 target_link_libraries(WorldFrame ${OpenCV_LIBS}
   ${OpenCV_LIBRARIES})
 
+###########################
+## Build Lib Video Streamer ##
+###########################
+
+add_library(VideoStreamer STATIC
+  src/VideoStreamer.h
+  src/VideoStreamer.cpp
+)
+target_link_libraries(VideoStreamer ${OpenCV_LIBS}
+  ${OpenCV_LIBRARIES})
+
 
 ########################
 ## Build Multi Sensor ##
@@ -97,10 +108,6 @@ target_link_libraries(WorldFrame ${OpenCV_LIBS}
 
 ADD_EXECUTABLE(kinect_v2
   src/kinect_v2.cpp
-  src/WorldFrame.h
-  src/WorldFrame.cpp
-  src/VideoStreamer.h
-  src/VideoStreamer.cpp
 )
 message("${OpenCV_LIBRARIES}")
 
@@ -110,6 +117,7 @@ TARGET_LINK_LIBRARIES(kinect_v2
   Kinect2Calib
   WorldFrame
   freenect2
+  VideoStreamer
 )
 
 
