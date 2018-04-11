@@ -45,7 +45,6 @@ public:
 	bool loadCalibrationFile(const std::string &filename, cv::Mat &cameraMatrix, cv::Mat &distortion);
 	bool loadCalibrationPoseFile(const std::string &filename, cv::Mat &rotation, cv::Mat &translation);
 	bool loadCalibrationDepthFile(const std::string &filename, double &depthShift);
-
 };
 
 
