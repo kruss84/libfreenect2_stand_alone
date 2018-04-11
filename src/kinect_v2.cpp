@@ -99,7 +99,7 @@ bool loadCalibrationFile(const std::string &filename, cv::Mat &cameraMatrix, cv:
 	return true;
 }
 
-bool calibrate(Mat img, bool calibrate_flag = false){
+bool extern_parameter_output(Mat img, bool calibrate_flag = false){
 	if (calibrate_flag){
 		CoordinateFrame::WorldFrame worldFrame_1;
 
@@ -135,57 +135,100 @@ bool calibrate(Mat img, bool calibrate_flag = false){
 		worldFrame_1.init();
 
 		worldFrame_1.calibrate = true;
+		worldFrame_1.save = true;
 		worldFrame_1.calibWorldFrame(img);
 	}
 	return true;
 }
 
-const string currentDateTime() {
-	time_t     now = time(0);
-	struct tm  tstruct;
-	char       buf[80];
-	tstruct = *localtime(&now);
-	// Visit http://en.cppreference.com/w/cpp/chrono/c/strftime
-	// for more information about date/time format
-	strftime(buf, sizeof(buf), "%Y-%m-%d-%H-%M-%S", &tstruct);
-	return buf;
+bool load_extern_parameter(string filename, Mat rvecs, Mat tvecs){
+	FileStorage fs(filename, FileStorage::READ);
+	fs ["r_C"] >> rvecs;
+	fs ["t_C"] >> tvecs;
+	fs.release();
+	for (int i = 0; i<3; i++)
+	{
+		cout << rvecs.at<double>(i,0) <<endl;
+	}
+	return true;
 }
 
-void video_input(VideoCapture  &video_reader, Mat &frame, const String& filename, bool read_flag = true){
-	//cout << "enter video output function" << endl;
-	if (read_flag){
-		if (!video_reader.isOpened())
-			video_reader.open(filename);
-		video_reader >> frame;
-	}
-	//close video writer
-	else if (!read_flag){
-		if (video_reader.isOpened()){
-			video_reader.release();
-		}
-	}
+void move_callback(int event, int x, int y, int flags, void* img)
+{
+	Mat* temp;
+	temp = (Mat*)img;
+	ostringstream ss;
+	float f = (*temp).at<float>(y, x);
+	ss << f;
+	Mat show;
+	(*temp).copyTo(show);
+	putText(show, ss.str(), Point(20, 30), FONT_HERSHEY_SIMPLEX, 1, Scalar(255,255,255), 4, 8);
+	//cout << "x:" << x << " y:" << y << " depth:" << (*temp).at<float>(y, x)<< endl;
+	
+	imshow("calibration", show);
 }
 
-void video_output(VideoWriter &video_writer, Mat img, const String& filename, double fps, bool isColor = true, bool start_recorde = false){
-	//cout << "enter video output function" << endl;
-	//open video writer and recorde
-	if (start_recorde){
-		if (!video_writer.isOpened()){
-			video_writer.open(filename, CV_FOURCC('D', 'I', 'B', ' '), fps, img.size(), isColor);
-			cout << "isOpened" << video_writer.isOpened() << endl;
+bool depth_calibrate(string filename, Mat depth)//, cv::Mat cameraMatrixIr, cv::Mat rvecs, cv::Mat tvecs){
+{
+	//intrinsische Parameter
+	//double* I_K = 
+	float fx = 366, fy = 366, cx = 249, cy = 200;
+	//extrinsische Parameter
+	Mat r_temp(3,1,CV_64FC1), t_temp, r_matrix;
+	load_extern_parameter(filename, r_temp, t_temp);
+	Rodrigues(r_temp, r_matrix);
+	//Rotation Matrix
+	Mat r_matrixinv;
+	r_matrixinv = r_matrix.inv();
+	float R_M[9];
+	for (int i = 0; i<3; i++)
+	{	
+		for (int j = 0; j<3; j++)
+		{
+			R_M[j + 3 * i] = r_matrixinv.at<double>(i, j);
+			cout << R_M[j + 3 * i] << endl;
 		}
-		video_writer.write(img);
+
 	}
-	//close video writer
-	else if (!start_recorde){
-		if (video_writer.isOpened()){
-			video_writer.release();
+
+	//Weltkoordinatesystem
+	float x_w, y_w, z_w;
+
+	Mat depth_calibration(depth.rows, depth.cols, depth.type());
+
+	for (int i = 0; i < depth.rows; i++){
+		for (int j = 0; j < depth.cols; j++){
+			z_w = depth.at<float>(i, j) / 1000;
+			x_w = (j - cx) *  z_w / fx;
+			y_w = (i - cy) * z_w / fy;
+			if (z_w>0)
+				z_w = (R_M[6] * x_w   + R_M[7] * y_w   + R_M[8] * z_w) *1000;
+			//cout << "z_c " << z_c << endl;
+			/*
+			if (z_w > d_max){
+				d_max = z_w;
+			}
+			if (z_w < d_min){
+				d_min = z_w;
+			}
+			*/
+			//cout << "x " << x_c << "y " << y_c << "z " << z_c << endl;
+			depth_calibration.at<float>(i, j) = z_w;
+				
 		}
 	}
+
+	imshow("depth", depth);
+	imshow("calibration", depth_calibration);
+	setMouseCallback("depth", move_callback, &depth);
+	setMouseCallback("calibration", move_callback, &depth_calibration);
+	waitKey(0);
+	return true;
 }
 
 int main(int argc, char *argv[])
 {
+	
 	std::string prorangeam_path(argv[0]);
 	size_t executable_name_idx = prorangeam_path.rfind("Protonect");
 
@@ -271,6 +314,16 @@ int main(int argc, char *argv[])
 	{
 		std::cerr << "using sensor defaults for ir intrinsic parameters." << std::endl;
 	}
+	double ir_d;
+	double* ir_p = (double*)cameraMatrixIr.data;
+	for (int i = 0; i < cameraMatrixIr.rows; i++){
+		for (int j = 0; j < cameraMatrixIr.cols; j++){
+
+			ir_d = ir_p[i];
+			cout << ir_d << endl;
+
+		}
+	}
 
 	if (!calib.loadCalibrationPoseFile(calibPath + K2_CALIB_POSE, rotation, translation))
 	{
@@ -282,6 +335,11 @@ int main(int argc, char *argv[])
 		std::cerr << "using defaults for depth shift." << std::endl;
 		depthShift = 0.0;
 	}
+
+	//Mat r_temp, t_temp;
+	//load_extern_parameter(calibPath + "external_Parameters_018470145047.xml", r_temp, t_temp);
+	
+
 
 	if (scale > 0.0)
 	{
@@ -334,7 +392,7 @@ int main(int argc, char *argv[])
 		vs.video_recorder(video_path, image_color, 25.0, VideoStreamer::COLOR, recorde_flag);
 		vs.video_recorder(video_path, image_depth, 25.0, VideoStreamer::DEPTH, recorde_flag);
 
-		calibrate(image_color, calibrate_flag);
+		extern_parameter_output(image_color, calibrate_flag);
 
 		if (recorde_flag){
 			putText(image_color, "(R)ecording..., (C)alibrate, (Esc)exit", Point(50, 60), FONT_HERSHEY_SIMPLEX, 1, Scalar(255, 23, 0), 4, 8);
@@ -342,9 +400,14 @@ int main(int argc, char *argv[])
 		else if (!recorde_flag){
 			putText(image_color, "(R)ecord start, (C)alibrate, (Esc)exit", Point(50, 60), FONT_HERSHEY_SIMPLEX, 1, Scalar(255, 23, 0), 4, 8);
 		}
+
+		depth_calibrate(calibPath + "external_Parameters_018470145047.xml", image_depth);
+
 		imshow("RGB", image_color);
 		imshow("Depth", image_depth);
 		
+		
+
 		protonect_shutdown = protonect_shutdown || (key > 0 && ((key & 0xFF) == 27)); // shutdown on escape
 
 		listener.release(frames);
@@ -352,10 +415,21 @@ int main(int argc, char *argv[])
 
 
 		// read video
+<<<<<<< .mine
+		Mat temp_read;
+		if (vs.video_play(video_path + "depth_2018-04-06-15-17-53.avi", temp_read, true))
+			imshow("temp_read", temp_read);
+||||||| .r5
+		Mat temp_read;
+		vs.video_play(video_path + "color_2018-04-06-15-17-53.avi", temp_read, true);
+		imshow("temp_read", temp_read);
+		
+=======
 		//Mat temp_read;
 		//vs.video_play(video_path + "color_2018-04-06-15-17-53.avi", temp_read, true);
 		//imshow("temp_read", temp_read);
 		
+>>>>>>> .r11
 	}
 
 	// TODO: restarting ir stream doesn't work!
