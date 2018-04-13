@@ -24,7 +24,7 @@ class VideoStreamer
 
 		void video_recorder(const String& video_path, Mat img, double fps, type, bool recorde_flag = false);
 
-		void video_play(const String& file_name, Mat &frame, bool read_flag = true);
+		bool video_play(const String& file_name, Mat &frame, bool read_flag = true);
 		//void color_video_recorder(const String& filename, Mat img, double fps, bool isColor = true, bool recorde_flag = false);
 		//void depth_video_recorder(const String& filename, Mat img, double fps, bool isColor = true, bool recorde_flag = false);
 
