@@ -47,6 +47,7 @@
 #include "Kinect2Calib\kinect2_calib.h"
 #include "WorldFrame.h"
 #include "VideoStreamer/VideoStreamer.h"
+#include <math.h>
 
 
 
@@ -197,6 +198,39 @@ Mat depth_calibrate_test(Mat depth, cv::Mat cameraMatrixIr, cv::Mat rvecs, cv::M
 	//Weltkoordinatesystem
 	float x_w, y_w, z_w;
 
+
+	//x richtung
+	Point up(200, 200), down(200, 400);
+	double angle_x;
+	//double r_x[9];
+	//r_x[0] = 1;
+	//r_x[1] = r_x[2] = r_x[3] = r_x[6] = 0;
+	float z_up = depth.at<float>(up);
+	float y_up = (up.y - cy) * z_up / fy;
+	float z_down = depth.at<float>(down);
+	float y_down = (down.y - cy) * z_down / fy;
+	float diff_y, diff_y_max = 0;
+	float z_up_temp = z_up;
+	float z_down_temp = z_down;
+	for (int i = -90; i < 90; i++){
+		z_up = y_up * sin(i * 3.1415 / 180) + depth.at<float>(up) * cos(i * 3.1415 / 180);
+		z_down = y_down * sin(i * 3.1415 / 180) + depth.at<float>(down) * cos(i * 3.1415 / 180);
+		diff_y = abs(z_up - z_down);
+		//cout << "i " << i << " diff " << diff_y << endl;
+		if (diff_y > diff_y_max){
+			diff_y_max = diff_y;
+			angle_x = i;
+		}
+	}
+	cout << "angle_x " << angle_x << endl;
+	//x richtung
+
+	R_M[0] = 1;
+	R_M[1] = R_M[2] = R_M[3] = R_M[6] = 0;
+	R_M[4] = R_M[8] = cos(angle_x * 3.1415 / 180);
+	R_M[7] = sin(angle_x * 3.1415 / 180);
+	R_M[5] = -sin(angle_x * 3.1415 / 180);
+
 	for (int i = 0; i < depth.rows; i++){
 		for (int j = 0; j < depth.cols; j++){
 			z_w = depth.at<float>(i, j) / 1000;
@@ -219,6 +253,165 @@ Mat depth_calibrate_test(Mat depth, cv::Mat cameraMatrixIr, cv::Mat rvecs, cv::M
 
 		}
 	}
+
+	//imshow("depth", depth);
+	//imshow("calibration", depth_calibration);
+	//setMouseCallback("depth", move_callback, &depth);
+	//setMouseCallback("calibration", move_callback, &depth_calibration);
+	//waitKey(0);
+	return depth_calibration;
+}
+Mat depth_point_test(Mat depth, cv::Mat cameraMatrixIr, cv::Mat rvecs, cv::Mat tvecs)
+{
+	//kreuz
+	Point up(200,200), down(200,400), left, right;
+	/*
+	float mean_y, diff_y, diff_y_sum = 0;
+	for (int i = up.y; i < down.y; i++){
+		diff_y = depth.at<float>(i + 1, up.x) - depth.at<float>(i, up.x);
+		diff_y_sum = diff_y_sum + diff_y;
+	}
+	mean_y = diff_y_sum / (down.y - up.y);
+	depth.at<float>(down.y, down.x) = depth.at<float>(up.y, up.x) + 
+
+
+	float diff_x, diff_x_sum = 0;
+	for (int i = left.y; i < right.y; i++){
+		diff_x = depth.at<float>(left.y, i+1) - depth.at<float>(left.y, i);
+		diff_x_sum = diff_x_sum + diff_x;
+	}
+	*/
+
+	//kreuz
+
+	Mat depth_calibration(depth.rows, depth.cols, depth.type());
+	Mat depth_calibration_test(depth.rows * 4, depth.cols * 4, depth.type());
+	//intrinsische Parameter
+	double* I_P = (double*)cameraMatrixIr.data;
+	float fx = I_P[0], fy = I_P[4], cx = I_P[2], cy = I_P[5];
+	//extrinsische Parameter
+	Mat r_matrix, r_matrixinv;
+
+	Rodrigues(rvecs, r_matrix);
+	//Rotation Matrix
+	r_matrixinv = r_matrix.inv();
+
+	double *R_M = (double*)r_matrixinv.data;
+	double* temp_M = (double*)r_matrix.data;
+	for (int i = 0; i < 9; i++){
+		cout << i << "  R_M" << R_M[i] << "temp_M" << temp_M[i] << endl;
+	}
+	/*
+	for (int i = 0; i<3; i++)
+	{
+	for (int j = 0; j<3; j++)
+	{
+	//R_M[j + 3 * i] = r_matrixinv.at<double>(i, j);
+	cout << R_M[j + 3 * i] << endl;
+	}
+
+	}
+	*/
+	//wold coordinatesystem
+	float x_w, y_w, z_w;
+	//camera coordinatesystem
+	float x_c, y_c, z_c;
+	float x_min = 0, x_max = 0, y_min = 0, y_max = 0, x_shift = 1200, y_shift = 1400;
+	float x_temp, y_temp;
+
+	Mat point_cloud(1080, 1920, depth.type());
+
+	//x richtung
+	double angle_x;
+	//double r_x[9];
+	//r_x[0] = 1;
+	//r_x[1] = r_x[2] = r_x[3] = r_x[6] = 0;
+	float z_up = depth.at<float>(up);
+	float y_up = (up.y - cy) * z_up / fy;
+	float z_down = depth.at<float>(down);
+	float y_down = (down.y - cy) * z_down / fy;
+	float diff_y, diff_y_max = 0;
+	float z_up_temp = z_up;
+	float z_down_temp = z_down;
+	for (int i = -90; i < 90; i++){
+		z_up = y_up * sin(i * 3.1415 / 180) + depth.at<float>(up) * cos(i * 3.1415 / 180);
+		z_down = y_down * sin(i * 3.1415 / 180) + depth.at<float>(down) * cos(i * 3.1415 / 180);
+		diff_y = abs(z_up - z_down);
+		//cout << "i " << i << " diff " << diff_y << endl;
+		if (diff_y > diff_y_max){
+			diff_y_max = diff_y;
+			angle_x = i;
+		}
+	}
+	//x richtung
+	//cout << "angle_x" << angle_x << endl;
+
+
+	R_M[0] = 1;
+	R_M[1] = R_M[2] = R_M[3] = R_M[6] = 0;
+	R_M[4] = R_M[8] = cos(angle_x * 3.1415 / 180);
+	R_M[7] = sin(angle_x * 3.1415 / 180);
+	R_M[5] = -sin(angle_x * 3.1415 / 180);
+	//cout << "angle_x " << angle_x << " sin " << sin(angle_x * 3.1415 / 180) << endl;
+
+	for (int i = 0; i < depth.rows; i++){
+		for (int j = 0; j < depth.cols; j++){
+			z_c = depth.at<float>(i, j) / 1000;
+			x_c = (j - cx) *  z_c / fx;
+			y_c = (i - cy) * z_c / fy;
+
+			//test
+			float x_p, y_p;
+			if (z_c > 0){
+
+				x_w = R_M[0] * x_c + R_M[1] * y_c + R_M[2] * z_c;
+				y_w = R_M[3] * x_c + R_M[4] * y_c + R_M[5] * z_c;
+				z_w = R_M[6] * x_c + R_M[7] * y_c + R_M[8] * z_c;
+
+				//x_w = x_c;
+				//y_w = y_c;
+				//z_w = z_c;
+
+				x_p = x_w * fx / 1 + cx;
+				y_p = y_w * fy / 1 + cy;
+
+
+				x_temp = x_p;
+				y_temp = y_p;
+				//x_c = temp_M[7] * x_temp + temp_M[8] * y_temp;// +temp_M[3] * z_w;
+				//x_c = R_M[7] * x_temp + R_M[8] * y_temp;// +R_M[2] * z_w;
+				//x_c = 0.707 * x_temp - 0.707 * y_temp;
+				//y_c = temp_M[4] * x_temp + temp_M[5] * y_temp;// +temp_M[6] * z_w;
+				//y_c = R_M[4] * x_temp + R_M[5] * y_temp;// +R_M[5] * z_w;
+				//y_c = 0.707 * x_temp + 0.707 * y_temp;
+			}
+
+			//if (2 * depth.cols+ 10 > x_c || x_c > 2 * depth.cols -13)
+			//x_c = 0;
+			//if (2 * depth.rows+ 10 > y_c || y_c > 2 * depth.rows -13)
+			//y_c = 0;
+
+			//test
+
+			//cout << "x " << x_c << "y " << y_c << "z "  << endl;
+			//test
+			int x_pixel = -x_p + x_shift;
+			//x_pixel = depth_calibration_test.cols - x_pixel;
+			int y_pixel = y_p;// +x_shift;
+			//y_pixel = depth_calibration_test.rows - y_pixel;
+			if (x_pixel<0 || x_pixel > point_cloud.cols - 1)
+				x_pixel = 0;
+			if (y_pixel<0 || y_pixel > point_cloud.rows - 1)
+				y_pixel = 0;
+
+
+			//cout << "x " << x_pixel << "y " << y_pixel << "z " << endl;
+			point_cloud.at<float>(y_pixel, x_pixel) = z_w * 1000;
+
+		}
+	}
+	return point_cloud;
+}
 
 int main(int argc, char *argv[]){
 	
@@ -370,6 +563,7 @@ int main(int argc, char *argv[]){
 	bool recorde_flag = 0;
 	bool depth_calibrate_flag = 0;
 	bool calibrate_flag = 0;
+	CoordinateFrame::CaliWithFloor floor_test;
 
 	while (!protonect_shutdown)
 	{
@@ -399,17 +593,31 @@ int main(int argc, char *argv[]){
 			putText(image_color, "(R)ecord start, (C)alibrate, (D)epth calibration, (Esc)exit", Point(50, 60), FONT_HERSHEY_SIMPLEX, 1, Scalar(255, 23, 0), 4, 8);
 		}
 
+		
+
 		if (depth_calibrate_flag){
+
+			if (floor_test.angle_x == 0){
+				floor_test.init(image_depth, cameraMatrixIr);
+			}
+
+
 			Mat rvecs(3, 1, CV_64FC1), t_temp, tvecs;
 			load_extern_parameter(calibPath + "external_Parameters_018470145047.xml", rvecs, tvecs);
 			//setMouseCallback("depth", move_callback, &depth);
-			depth_c = CoordinateFrame::depth_calibrate(image_depth, cameraMatrixIr, rvecs, tvecs);
-			point_cloud = CoordinateFrame::depth_point_cloud(image_depth, cameraMatrixIr, rvecs, tvecs);
+			//depth_c = CoordinateFrame::depth_calibrate(image_depth, cameraMatrixIr, rvecs, tvecs);
+			depth_c = floor_test.depth_calibrate(image_depth);
+
+			//point_cloud = CoordinateFrame::depth_point_cloud(image_depth, cameraMatrixIr, rvecs, tvecs);
+			//point_cloud = depth_point_test(image_depth, cameraMatrixIr, rvecs, tvecs);
+			point_cloud = floor_test.point_cloud(image_depth);
+
 			setMouseCallback("calibration", move_callback, &pixel_location);
 			setMouseCallback("depth", move_callback, &pixel_location);
 			ostringstream ss, ss2;
 			float f = image_depth.at<float>(pixel_location.y, pixel_location.x);
 			float f_c = depth_c.at<float>(pixel_location.y, pixel_location.x);
+			//cout << "x " << pixel_location.x << " y " << pixel_location.y << endl;
 			ss << f_c;
 			putText(depth_c, ss.str(), Point(20, 30), FONT_HERSHEY_SIMPLEX, 1, Scalar(255, 255, 255), 4, 8);
 			ss2 << f;
